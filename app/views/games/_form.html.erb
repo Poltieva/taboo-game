@@ -12,6 +12,10 @@
   <% end %>
 
   <div>
+    <%= form.label :name, "Words" %>
+    <%= form.text_field :words, required: true, placeholder: "Enter comma-separated words" %>
+  </div>
+
     <%= form.submit %>
   </div>
 <% end %>

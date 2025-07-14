@@ -1,5 +1,7 @@
 Rails.application.routes.draw do
+  resources :word_lists
   resource :session
+  resource :user, only: [ :new, :create ]
   resources :passwords, param: :token
   get "up" => "rails/health#show", as: :rails_health_check
 

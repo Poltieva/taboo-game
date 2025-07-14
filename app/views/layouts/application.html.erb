@@ -23,6 +23,9 @@
   </head>
 
   <body>
-    <%= yield %>
+    <%= render "shared/header" %>
+    <div style="padding: 0 20px;">
+      <%= yield %>
+    </div>
   </body>
 </html>

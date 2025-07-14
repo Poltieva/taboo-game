@@ -1,13 +1,11 @@
 class GamesController < ApplicationController
   before_action :set_game, only: %i[ show edit update destroy join start ]
-  before_action :authenticate_user!
   def index
     @games = Game.where(status: [ :waiting, :in_progress ])
   end
 
   def show
     @players = @game.players
-    @current_round = @game.rounds.last
   end
 
   def new
@@ -18,8 +16,10 @@ class GamesController < ApplicationController
   end
 
   def create
-    @game = Game.new(creator: current_user, **game_params)
-    @game.player_games.create(user: current_user, score: 0)
+    @game = Game.new(creator: current_user)
+    @game.build_word_list(words: game_params[:words].split(",").map(&:strip))
+    @game.players << current_user
+    # @game.player_games.create(user: current_user, score: 0)
 
     if @game.save
       redirect_to @game, notice: "Game was successfully created."
@@ -61,6 +61,8 @@ class GamesController < ApplicationController
 
   # Only allow a list of trusted parameters through.
   def game_params
-    params.fetch(:game, {})
+    params.fetch(:game, {}).permit(
+      :words
+    )
   end
 end

@@ -13,6 +13,10 @@ module Authentication
   end
 
   private
+    def current_user
+      @current_user ||= Current.session&.user
+    end
+
     def authenticated?
       resume_session
     end

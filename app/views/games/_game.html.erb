@@ -1,2 +1,5 @@
 <div id="<%= dom_id game %>">
+    <% @players.each do |player| %>
+        <p><strong><%= player.username %></strong></p>
+    <% end %>
 </div>

@@ -43,7 +43,11 @@ class GamesController < ApplicationController
   end
 
   def join
-    @game.player_games.create(user: current_user, score: 0)
+    unless @game.players.include?(current_user)
+      @game.players << current_user
+      GameChannel.broadcast_to(@game, type: "player_joined", player: current_user.attributes.slice("id", "username"))
+      flash[:notice] = "You have joined the game!"
+    end
     redirect_to @game
   end
 
@@ -56,7 +60,7 @@ class GamesController < ApplicationController
   private
   # Use callbacks to share common setup or constraints between actions.
   def set_game
-    @game = Game.find(params.expect(:id))
+    @game = Game.find(params.fetch(:id))
   end
 
   # Only allow a list of trusted parameters through.

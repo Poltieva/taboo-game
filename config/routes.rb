@@ -7,7 +7,7 @@ Rails.application.routes.draw do
 
   resources :games do
     member do
-      post :join
+      get :join
       post :start
     end
   end

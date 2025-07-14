@@ -1,5 +1,20 @@
-<div id="<%= dom_id game %>">
-    <% @players.each do |player| %>
-        <p><strong><%= player.username %></strong></p>
+<div id="<%= dom_id game %>" 
+     data-controller="game"
+     data-game-game-id-value="<%= game.id %>">
+    <div data-game-target="playersList">
+        <% players = defined?(@players) ? @players : game.players %>
+        <% players.each do |player| %>
+            <p id="player-<%= player.id %>"><strong><%= player.username %></strong></p>
+        <% end %>
+    </div>
+    
+    <% if game.creator == current_user && game.waiting? %>
+        <%= button_to "Start Game", start_game_path(game), method: :post, class: "start-button" %>
+    <% elsif !game.players.include?(current_user) && game.waiting? %>
+        <%= button_to "Join Game", join_game_path(game), method: :post, class: "join-button" %>
+    <% end %>
+
+    <% if game.in_progress? %>
+        <p><strong>Game in progress</strong></p>
     <% end %>
 </div>

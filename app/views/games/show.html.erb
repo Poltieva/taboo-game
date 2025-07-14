@@ -1,10 +1,30 @@
 <p style="color: green"><%= notice %></p>
 
-<%= render @game %>
+<h1>Game #<%= @game.id %></h1>
 
-<div>
-  <%= link_to "Edit this game", edit_game_path(@game) %> |
+<div class="game-status">
+  <strong>Status:</strong> <%= @game.status.capitalize %>
+</div>
+
+<div class="game-content">
+  <%= render @game %>
+</div>
+
+<div class="game-actions">
+  <% if @game.creator == current_user %>
+    <% if @game.waiting? %>
+      <%= link_to "Edit this game", edit_game_path(@game) %> |
+    <% end %>
+    <%= button_to "Destroy this game", @game, method: :delete, class: "destroy-button" %>
+  <% end %>
   <%= link_to "Back to games", games_path %>
+</div>
 
-  <%= button_to "Destroy this game", @game, method: :delete %>
+<div class="share-game">
+  <h3>Invite players</h3>
+  <p>Share this link to invite players to join:</p>
+  <div class="share-link">
+    <input type="text" value="<%= game_url(@game) %>" readonly onclick="this.select();" class="share-input" />
+    <button onclick="navigator.clipboard.writeText('<%= game_url(@game) %>'); alert('Link copied!');" class="copy-button">Copy Link</button>
+  </div>
 </div>

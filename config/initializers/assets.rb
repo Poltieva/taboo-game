@@ -6,8 +6,5 @@ Rails.application.config.assets.version = "1.0"
 # Add additional assets to the asset load path.
 # Rails.application.config.assets.paths << Emoji.images_path
 
-# Add the sounds directory to the asset path
-Rails.application.config.assets.paths << Rails.root.join("app", "assets", "sounds")
-
-# Precompile sound files
-Rails.application.config.assets.precompile += %w[ *.mp3 ]
+# Sound files are served directly from the public/sounds directory
+# No need for asset pipeline configuration

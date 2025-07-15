@@ -121,19 +121,66 @@ export default class extends Controller {
       return
     }
     
+    // Make sure we have a valid sound type
+    if (!['join', 'leave', 'start'].includes(type)) {
+      console.error(`Invalid sound type: ${type}`)
+      return
+    }
+    
     try {
-      // Create a new audio instance
-      const audio = new Audio(`/sounds/${type}.mp3`)
+      // Create audio element for better browser compatibility
+      const audio = new Audio()
       
-      // Set volume (0.0 to 1.0)
-      audio.volume = 0.5
+      // Set the sound URL using window.location.origin to ensure absolute path
+      const soundUrl = `${window.location.origin}/sounds/${type}.mp3`
+      console.log(`Loading sound from: ${soundUrl}`)
       
-      // Play the sound
-      audio.play().catch(error => {
-        console.error(`Error playing ${type} sound:`, error)
+      // Set up event listeners for debugging
+      audio.addEventListener('canplaythrough', () => {
+        console.log(`Sound ${type} loaded successfully and can play`)
+        // Only try to play after the canplaythrough event
+        try {
+          const playPromise = audio.play()
+          if (playPromise !== undefined) {
+            playPromise.catch(error => {
+              console.error(`Error playing ${type} sound:`, error)
+              this.playFallbackSound()
+            })
+          }
+        } catch (innerError) {
+          console.error(`Error playing sound after load: ${innerError}`)
+          this.playFallbackSound()
+        }
       })
+      
+      audio.addEventListener('error', (e) => {
+        console.error(`Sound ${type} failed to load:`, e)
+        this.playFallbackSound()
+      })
+      
+      // Set audio properties
+      audio.src = soundUrl
+      audio.volume = 0.5
+      audio.preload = 'auto'
+      
     } catch (error) {
       console.error(`Error setting up ${type} sound:`, error)
+      this.playFallbackSound()
+    }
+  }
+  
+  playFallbackSound() {
+    // Simple beep using the Web Audio API as a fallback
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime) // value in hertz
+      oscillator.connect(audioContext.destination)
+      oscillator.start()
+      oscillator.stop(audioContext.currentTime + 0.2)
+    } catch (e) {
+      console.error('Could not play fallback sound:', e)
     }
   }
   

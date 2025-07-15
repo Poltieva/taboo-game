@@ -1,21 +1,32 @@
 <div id="<%= dom_id game %>" 
      data-controller="game heartbeat"
      data-game-game-id-value="<%= game.id %>"
+     data-game-round-duration-value="<%= Game::ROUND_DURATION %>"
+     data-game-pause-duration-value="<%= Game::ROUND_PAUSE %>"
      data-heartbeat-game-id-value="<%= game.id %>"
      data-heartbeat-interval-value="15000">
     <div class="game-header">
-      <h3>Players (<span id="player-count"><%= @players.count %></span>)</h3>
-      <button id="toggle-sound" class="sound-toggle" data-action="click->game#toggleSound">
-        <span class="sound-on">🔊</span>
-        <span class="sound-off" style="display:none;">🔇</span>
-      </button>
+      <div class="header-left">
+        <h3>Players (<span id="player-count"><%= @players.count %></span>)</h3>
+      </div>
+      <div class="header-right">
+        <div id="round-timer" class="round-timer" data-game-target="roundTimer"></div>
+        <button id="toggle-sound" class="sound-toggle" data-action="click->game#toggleSound">
+          <span class="sound-on">🔊</span>
+          <span class="sound-off" style="display:none;">🔇</span>
+        </button>
+      </div>
     </div>
+    
     <div class="players-container" data-game-target="playersList">
         <% @players.each do |player| %>
-            <div id="player-<%= player.id %>" class="player-item">
+            <div id="player-<%= player.id %>" class="player-item <%= 'current-player' if @current_round&.player == player %>">
                 <strong><%= player.username %></strong>
                 <% if player.id == game.creator_id %>
                     <span class="creator-badge">Creator</span>
+                <% end %>
+                <% if @current_round&.player == player %>
+                    <span class="current-player-badge">Current Player</span>
                 <% end %>
             </div>
         <% end %>
@@ -26,6 +37,33 @@
     <% end %>
 
     <% if game.in_progress? %>
-        <p><strong>Game in progress</strong></p>
+        <div class="game-status" data-game-target="gameStatus">
+            <% if @current_round %>
+                <div class="current-round">
+                    <h4>Current Round</h4>
+                    <p>Player: <strong><%= @current_round.player.username %></strong></p>
+                    <p>Word: <strong><%= @current_round.word %></strong></p>
+                    <% if @current_user == @current_round.player %>
+                        <div class="word-display">
+                            <h2><%= @current_round.word %></h2>
+                        </div>
+                        <%= button_to "End Round", end_round_game_path(game), method: :post, class: "round-button end-round-button" %>
+                    <% end %>
+                </div>
+            <% elsif @next_player %>
+                <div class="next-round">
+                    <h4>Waiting for Next Round</h4>
+                    <p>Next player: <strong><%= @next_player.username %></strong></p>
+                    <p class="auto-start-info">Next round will start automatically in <span id="next-round-countdown">--</span> seconds</p>
+                    <% if @current_user == @next_player %>
+                        <%= button_to "Start My Round Now", next_round_game_path(game), method: :post, class: "round-button start-round-button" %>
+                    <% end %>
+                </div>
+            <% else %>
+                <p><strong>Game finished!</strong></p>
+            <% end %>
+        </div>
     <% end %>
+    
+    <div class="round-messages" data-game-target="roundMessages"></div>
 </div>

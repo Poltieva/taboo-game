@@ -2,10 +2,20 @@ import { Controller } from "@hotwired/stimulus"
 import { createConsumer } from "@rails/actioncable"
 
 export default class extends Controller {
-  static targets = ["playersList"]
+  static targets = ["playersList", "roundTimer", "gameStatus", "roundMessages"]
+  static values = {
+    gameId: Number,
+    roundDuration: { type: Number, default: 60 },
+    pauseDuration: { type: Number, default: 10 }
+  }
   
   connect() {
     console.log("Game controller connected with game ID:", this.gameIdValue)
+    
+    // Store round timer reference
+    this.roundTimerInterval = null
+    this.roundEndTime = null
+    this.nextRoundCountdownInterval = null
     
     if (this.hasGameIdValue) {
       console.log("Creating subscription for game:", this.gameIdValue)
@@ -34,6 +44,12 @@ export default class extends Controller {
           setTimeout(() => {
             this.refreshPlayersList()
           }, 500)
+          
+          // Set up a periodic refresh every 5 seconds to keep the player list
+          // and current player indicator in sync
+          this.playerListInterval = setInterval(() => {
+            this.refreshPlayersList()
+          }, 5000)
         } else {
           console.warn("No players list target found!")
         }
@@ -51,6 +67,9 @@ export default class extends Controller {
     // Initialize sound button state
     const soundEnabled = localStorage.getItem('taboo_sound_enabled') !== 'false'
     this.updateSoundButtonState(soundEnabled)
+    
+    // Initialize timers based on server data instead of local calculation
+    this.fetchRoundTimingInfo()
   }
   
   disconnect() {
@@ -60,6 +79,19 @@ export default class extends Controller {
     
     if (this.boundRefreshHandler) {
       window.removeEventListener('game:refresh-players', this.boundRefreshHandler)
+    }
+    
+    // Clear any intervals
+    if (this.playerListInterval) {
+      clearInterval(this.playerListInterval)
+    }
+    
+    if (this.roundTimerInterval) {
+      clearInterval(this.roundTimerInterval)
+    }
+    
+    if (this.nextRoundCountdownInterval) {
+      clearInterval(this.nextRoundCountdownInterval)
     }
   }
   
@@ -102,6 +134,15 @@ export default class extends Controller {
       this.playSound('start')
       // Give a slight delay to allow the sound to play before reloading
       setTimeout(() => window.location.reload(), 500)
+    } else if (data.type === "round_started") {
+      console.log("Round started:", data)
+      this.handleRoundStarted(data)
+    } else if (data.type === "round_ended") {
+      console.log("Round ended:", data)
+      this.handleRoundEnded(data)
+    } else if (data.type === "game_finished") {
+      console.log("Game finished")
+      this.handleGameFinished()
     } else if (data.type === "round_success") {
       console.log("Round success:", data)
       this.handleRoundSuccess(data)
@@ -244,6 +285,301 @@ export default class extends Controller {
   handleRoundSuccess(data) {
     // Handle round success logic if needed
     console.log(`Round ${data.round_id} completed successfully with word: ${data.word}`)
+    
+    // Add a message to the round messages
+    this.addRoundMessage(`Round completed successfully! Word: ${data.word}`, 'round-ended')
+  }
+  
+  handleRoundStarted(data) {
+    console.log("Round started:", data)
+    
+    // Play a sound
+    this.playSound('start')
+    
+    // Update the UI with a message
+    this.addRoundMessage(`Round started with player ${data.player_name}`, 'round-started')
+    
+    // Either reload the page or fetch the latest timing info
+    if (this.hasGameStatusTarget) {
+      // If we're on the game page, reload to show the new round
+      window.location.reload()
+    } else {
+      // Otherwise, just fetch the latest timing info
+      this.fetchRoundTimingInfo()
+    }
+  }
+  
+  handleRoundEnded(data) {
+    console.log("Round ended:", data)
+    
+    // Play a sound
+    this.playSound('leave')
+    
+    // Clear any existing timer
+    this.clearRoundTimer()
+    
+    // Update the UI
+    this.addRoundMessage(`Round with ${data.player_name} has ended. Word was: ${data.word}`, 'round-ended')
+    
+    // Instead of calculating our own time, fetch the latest timing info from the server
+    setTimeout(() => {
+      this.fetchRoundTimingInfo()
+    }, 500) // Small delay to ensure the server has processed the round end
+  }
+  
+  handleGameFinished() {
+    console.log("Game finished")
+    
+    // Play a sound
+    this.playSound('leave')
+    
+    // Update the UI
+    this.addRoundMessage("Game is finished! All rounds completed.", 'game-finished')
+    
+    // Refresh the page after a delay
+    setTimeout(() => window.location.reload(), 1000)
+  }
+  
+  startRoundTimer(duration, endTime) {
+    // Clear any existing timer
+    this.clearRoundTimer()
+    
+    // Store the end time
+    this.roundEndTime = endTime
+    
+    // Update timer display immediately
+    this.updateTimerDisplay()
+    
+    // Set up interval to update timer
+    this.roundTimerInterval = setInterval(() => this.updateTimerDisplay(), 1000)
+  }
+  
+  updateTimerDisplay() {
+    if (!this.roundEndTime || !this.hasRoundTimerTarget) return
+    
+    // Calculate remaining time
+    const now = new Date()
+    const endTime = new Date(this.roundEndTime)
+    const timeRemaining = Math.max(0, Math.floor((endTime - now) / 1000))
+    
+    // Format as MM:SS
+    const minutes = Math.floor(timeRemaining / 60)
+    const seconds = timeRemaining % 60
+    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+    
+    // Update the timer display
+    this.roundTimerTarget.textContent = formattedTime
+    
+    // Add urgent class when time is running low (less than 10 seconds)
+    if (timeRemaining <= 10) {
+      this.roundTimerTarget.classList.add('urgent')
+    } else {
+      this.roundTimerTarget.classList.remove('urgent')
+    }
+    
+    // If time is up, clear the timer and end the round
+    if (timeRemaining <= 0) {
+      this.clearRoundTimer()
+      this.endRoundAutomatically()
+    }
+  }
+  
+  clearRoundTimer() {
+    if (this.roundTimerInterval) {
+      clearInterval(this.roundTimerInterval)
+      this.roundTimerInterval = null
+    }
+  }
+  
+  endRoundAutomatically() {
+    // Don't end the round if it's already been handled
+    if (this.roundEndingInProgress) return
+    
+    this.roundEndingInProgress = true
+    console.log("Timer expired, ending round automatically")
+    
+    // Show a message that time is up
+    this.addRoundMessage("Time's up! Round ended automatically.", 'round-ended')
+    
+    // Play the end sound
+    this.playSound('leave')
+    
+    // Send the end round request to the server
+    fetch(`/games/${this.gameIdValue}/end_round`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': this.getCsrfToken(),
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (response.ok) {
+        console.log("Round ended successfully via API")
+        
+        // After ending the round, start the pause timer
+        this.startRoundPause()
+        
+        // Mark round ending as complete
+        this.roundEndingInProgress = false
+      } else {
+        console.error("Error ending round:", response.status)
+        this.roundEndingInProgress = false
+      }
+    })
+    .catch(error => {
+      console.error("Failed to end round:", error)
+      this.roundEndingInProgress = false
+    })
+  }
+  
+  startRoundPause() {
+    console.log("Starting round pause")
+    
+    // Instead of calculating our own time, fetch the latest timing info from the server
+    this.fetchRoundTimingInfo()
+  }
+  
+  fetchRoundTimingInfo() {
+    fetch(`/games/${this.gameIdValue}/players`, {
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.ok ? response.json() : null)
+    .then(data => {
+      if (!data) return
+      
+      console.log("Received game timing data:", data)
+      
+      // Handle active round timer if there is one
+      if (data.current_round && data.current_round.ends_at) {
+        const endTime = new Date(data.current_round.ends_at)
+        if (this.hasRoundTimerTarget) {
+          console.log("Starting round timer with end time:", endTime)
+          this.startRoundTimer(data.current_round.time_remaining, endTime)
+        }
+      }
+      // Handle pause between rounds if there is one
+      else if (data.next_round_info && data.next_round_info.next_round_at) {
+        const nextRoundTime = new Date(data.next_round_info.next_round_at)
+        const secondsUntilNextRound = data.next_round_info.seconds_until_next_round
+        
+        console.log(`Next round starts in ${secondsUntilNextRound} seconds at ${nextRoundTime}`)
+        
+        // Start countdown to next round
+        this.startNextRoundCountdown(nextRoundTime, true)
+      }
+      // If game is in progress but no active round or pending round, try to start next round
+      else if (data.game_status === 'in_progress' && data.rounds_available) {
+        console.log("No active round or countdown, but rounds are available. Trying to start next round.")
+        this.startNextRoundAutomatically()
+      }
+    })
+    .catch(error => console.error("Error fetching round timing info:", error))
+  }
+  
+  startNextRoundAutomatically() {
+    console.log("Pause complete, starting next round automatically")
+    
+    // Send request to start the next round
+    fetch(`/games/${this.gameIdValue}/next_round`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': this.getCsrfToken(),
+        'Accept': 'application/json'
+      },
+      credentials: 'same-origin'
+    })
+    .then(response => {
+      if (response.ok) {
+        console.log("Next round started successfully via API")
+        window.location.reload()
+      } else if (response.status === 409) {
+        console.log("A round is already in progress")
+        window.location.reload()
+      } else {
+        console.error("Error starting next round:", response.status)
+      }
+    })
+    .catch(error => {
+      console.error("Failed to start next round:", error)
+    })
+  }
+  
+  getCsrfToken() {
+    // Get CSRF token from meta tag
+    const metaTag = document.querySelector('meta[name="csrf-token"]')
+    return metaTag ? metaTag.content : ''
+  }
+  
+  addRoundMessage(message, className = '') {
+    if (!this.hasRoundMessagesTarget) return
+    
+    const messageElement = document.createElement('div')
+    messageElement.className = `round-message ${className}`
+    messageElement.textContent = message
+    
+    // Add to the beginning of the list
+    if (this.roundMessagesTarget.firstChild) {
+      this.roundMessagesTarget.insertBefore(messageElement, this.roundMessagesTarget.firstChild)
+    } else {
+      this.roundMessagesTarget.appendChild(messageElement)
+    }
+    
+    // Only keep the last 5 messages
+    const messages = this.roundMessagesTarget.querySelectorAll('.round-message')
+    if (messages.length > 5) {
+      this.roundMessagesTarget.removeChild(messages[messages.length - 1])
+    }
+  }
+  
+  startNextRoundCountdown(nextRoundTime, autoStart = false) {
+    // Clear any existing countdown
+    this.clearNextRoundCountdown()
+    
+    const countdownElement = document.getElementById('next-round-countdown')
+    if (!countdownElement) return
+    
+    // Store whether to auto-start next round
+    this.shouldAutoStartNextRound = autoStart
+    
+    // Update countdown immediately
+    this.updateNextRoundCountdown(nextRoundTime, countdownElement)
+    
+    // Set up interval to update countdown
+    this.nextRoundCountdownInterval = setInterval(() => {
+      this.updateNextRoundCountdown(nextRoundTime, countdownElement)
+    }, 1000)
+  }
+  
+  updateNextRoundCountdown(nextRoundTime, countdownElement) {
+    // Calculate seconds until next round
+    const now = new Date()
+    const secondsRemaining = Math.max(0, Math.floor((nextRoundTime - now) / 1000))
+    
+    // Update the countdown display
+    countdownElement.textContent = secondsRemaining
+    
+    // If time is up
+    if (secondsRemaining <= 0) {
+      this.clearNextRoundCountdown()
+      
+      // If we should auto-start the next round, do so
+      if (this.shouldAutoStartNextRound) {
+        this.startNextRoundAutomatically()
+      }
+    }
+  }
+  
+  clearNextRoundCountdown() {
+    if (this.nextRoundCountdownInterval) {
+      clearInterval(this.nextRoundCountdownInterval)
+      this.nextRoundCountdownInterval = null
+    }
   }
   
   refreshPlayersList() {
@@ -271,15 +607,28 @@ export default class extends Controller {
       // Clear the current list
       this.playersListTarget.innerHTML = ''
       
+      // Store current round info
+      this.currentRoundData = data.current_round
+      
       // Add all players
       data.players.forEach(player => {
         const playerElement = document.createElement('div')
         playerElement.id = `player-${player.id}`
-        playerElement.className = 'player-item'
         
+        // Add current-player class if this is the player for the current round
+        const classes = ['player-item']
+        if (player.is_current_player) {
+          classes.push('current-player')
+        }
+        playerElement.className = classes.join(' ')
+        
+        // Build content with username and badges
         let content = `<strong>${player.username}</strong>`
         if (player.is_creator) {
           content += `<span class="creator-badge">Creator</span>`
+        }
+        if (player.is_current_player) {
+          content += `<span class="current-player-badge">Current Player</span>`
         }
         
         playerElement.innerHTML = content
@@ -290,6 +639,12 @@ export default class extends Controller {
       const playerCount = document.getElementById('player-count')
       if (playerCount) {
         playerCount.textContent = data.players.length
+      }
+      
+      // If we have round timer target and current round data with an end time,
+      // make sure the timer is updated
+      if (this.hasRoundTimerTarget && data.current_round && data.current_round.ends_at) {
+        this.startRoundTimer(60, new Date(data.current_round.ends_at))
       }
     })
     .catch(error => console.error('Error refreshing players:', error))
@@ -325,7 +680,5 @@ export default class extends Controller {
     }
   }
   
-  static values = {
-    gameId: Number
-  }
+  // Static values already defined at the top of the class
 }

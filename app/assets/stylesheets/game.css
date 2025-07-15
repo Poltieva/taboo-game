@@ -165,3 +165,132 @@
 .destroy-button:hover {
   background-color: #d32f2f;
 }
+
+/* Round specific styles */
+.round-timer {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  min-width: 60px;
+  text-align: center;
+}
+
+.round-timer.urgent {
+  color: white;
+  background-color: #ff3b30;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
+}
+
+.header-right {
+  gap: 1rem;
+}
+
+.player-item.current-player {
+  background-color: #e3f2fd;
+  border-left: 4px solid #2196f3;
+}
+
+.current-player-badge {
+  background-color: #2196f3;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.current-round, .next-round {
+  padding: 0.5rem;
+}
+
+.word-display {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: #e3f2fd;
+  border: 2px solid #2196f3;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.word-display h2 {
+  margin: 0;
+  color: #0d47a1;
+  font-size: 2rem;
+}
+
+.round-button {
+  padding: 8px 16px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.start-round-button {
+  background-color: #2196f3;
+  color: white;
+}
+
+.start-round-button:hover {
+  background-color: #0b7dda;
+}
+
+.end-round-button {
+  background-color: #ff9800;
+  color: white;
+}
+
+.end-round-button:hover {
+  background-color: #e68a00;
+}
+
+.round-messages {
+  margin-top: 1.5rem;
+}
+
+.round-message {
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  border-left: 3px solid #ddd;
+}
+
+.round-started {
+  border-left-color: #2196f3;
+}
+
+.round-ended {
+  border-left-color: #ff9800;
+}
+
+.game-finished {
+  border-left-color: #9c27b0;
+}
+
+/* Next round countdown */
+.auto-start-info {
+  color: #555;
+  font-size: 0.9rem;
+  margin: 8px 0;
+}
+
+#next-round-countdown {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #2196f3;
+}

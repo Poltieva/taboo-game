@@ -4,15 +4,14 @@
      data-heartbeat-game-id-value="<%= game.id %>"
      data-heartbeat-interval-value="15000">
     <div class="game-header">
-      <h3>Players (<span id="player-count"><%= game.players.count %></span>)</h3>
+      <h3>Players (<span id="player-count"><%= @players.count %></span>)</h3>
       <button id="toggle-sound" class="sound-toggle" data-action="click->game#toggleSound">
         <span class="sound-on">🔊</span>
         <span class="sound-off" style="display:none;">🔇</span>
       </button>
     </div>
     <div class="players-container" data-game-target="playersList">
-        <% players = defined?(@players) ? @players : game.players %>
-        <% players.each do |player| %>
+        <% @players.each do |player| %>
             <div id="player-<%= player.id %>" class="player-item">
                 <strong><%= player.username %></strong>
                 <% if player.id == game.creator_id %>

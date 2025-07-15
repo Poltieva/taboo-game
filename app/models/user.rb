@@ -3,7 +3,7 @@ class User < ApplicationRecord
   has_many :sessions, dependent: :destroy
 
   normalizes :email, with: ->(e) { e.strip.downcase }
-  has_many :games_players
+  has_many :games_players, dependent: :destroy
   has_many :games, through: :games_players
 
   validates :username, presence: true, uniqueness: true

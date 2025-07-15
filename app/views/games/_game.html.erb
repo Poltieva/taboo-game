@@ -1,17 +1,29 @@
 <div id="<%= dom_id game %>" 
-     data-controller="game"
-     data-game-game-id-value="<%= game.id %>">
-    <div data-game-target="playersList">
+     data-controller="game heartbeat"
+     data-game-game-id-value="<%= game.id %>"
+     data-heartbeat-game-id-value="<%= game.id %>"
+     data-heartbeat-interval-value="15000">
+    <div class="game-header">
+      <h3>Players (<span id="player-count"><%= game.players.count %></span>)</h3>
+      <button id="toggle-sound" class="sound-toggle" data-action="click->game#toggleSound">
+        <span class="sound-on">🔊</span>
+        <span class="sound-off" style="display:none;">🔇</span>
+      </button>
+    </div>
+    <div class="players-container" data-game-target="playersList">
         <% players = defined?(@players) ? @players : game.players %>
         <% players.each do |player| %>
-            <p id="player-<%= player.id %>"><strong><%= player.username %></strong></p>
+            <div id="player-<%= player.id %>" class="player-item">
+                <strong><%= player.username %></strong>
+                <% if player.id == game.creator_id %>
+                    <span class="creator-badge">Creator</span>
+                <% end %>
+            </div>
         <% end %>
     </div>
     
-    <% if game.creator == current_user && game.waiting? %>
+    <% if game.creator == @current_user && game.waiting? %>
         <%= button_to "Start Game", start_game_path(game), method: :post, class: "start-button" %>
-    <% elsif !game.players.include?(current_user) && game.waiting? %>
-        <%= button_to "Join Game", join_game_path(game), method: :post, class: "join-button" %>
     <% end %>
 
     <% if game.in_progress? %>

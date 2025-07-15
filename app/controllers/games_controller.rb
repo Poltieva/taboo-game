@@ -1,11 +1,17 @@
 class GamesController < ApplicationController
-  before_action :set_game, only: %i[ show edit update destroy join start ]
+  before_action :set_game, only: %i[ show edit update destroy start heartbeat players ]
   def index
     @games = Game.where(status: [ :waiting, :in_progress ])
   end
 
   def show
+    unless @game.players.include?(current_user)
+      @game.players << current_user
+      # Don't broadcast here since the channel subscription will handle it
+      flash[:notice] = "You have joined the game!"
+    end
     @players = @game.players
+    @current_user = current_user
   end
 
   def new
@@ -42,22 +48,79 @@ class GamesController < ApplicationController
     redirect_to games_path, notice: "Game was successfully destroyed.", status: :see_other
   end
 
-  def join
-    unless @game.players.include?(current_user)
-      @game.players << current_user
-      GameChannel.broadcast_to(@game, type: "player_joined", player: current_user.attributes.slice("id", "username"))
-      flash[:notice] = "You have joined the game!"
-    end
-    redirect_to @game
-  end
-
   def start
     @game.start_game!
     GameChannel.broadcast_to(@game, type: "game_started")
     redirect_to @game
   end
 
+  def heartbeat
+    # Update player's last_seen timestamp
+    if @game && current_user && @game.players.include?(current_user)
+      begin
+        # Use Rails cache to track player activity
+        Rails.cache.write("player:#{current_user.id}:game:#{@game.id}:active", true, expires_in: 1.minute)
+
+        # Check for inactive players every 60 seconds to avoid excessive processing
+        if rand < 0.1 # ~10% chance to run this code on each heartbeat
+          check_inactive_players
+        end
+
+        respond_to do |format|
+          format.json { head :ok }
+          format.html { head :ok }
+          format.any { head :ok }
+        end
+      rescue => e
+        Rails.logger.error("Error in heartbeat: #{e.message}")
+        head :internal_server_error
+      end
+    else
+      head :not_found
+    end
+  end
+
+  def players
+    respond_to do |format|
+      format.json do
+        render json: {
+          players: @game.players.map { |p|
+            {
+              id: p.id,
+              username: p.username,
+              is_creator: (p.id == @game.creator_id)
+            }
+          }
+        }
+      end
+    end
+  end
+
   private
+  # Check for inactive players and remove them
+  def check_inactive_players
+    return unless @game&.waiting?
+
+    @game.players.each do |player|
+      # Skip the current user who we know is active
+      next if player == current_user
+
+      # Check if player is still active
+      is_active = Rails.cache.exist?("player:#{player.id}:game:#{@game.id}:active")
+
+      unless is_active
+        # Player is inactive, remove them from the game
+        @game.players.delete(player)
+
+        # Broadcast that the player has left
+        GameChannel.broadcast_to(@game, {
+          type: "player_left",
+          player_id: player.id
+        })
+      end
+    end
+  end
+
   # Use callbacks to share common setup or constraints between actions.
   def set_game
     @game = Game.find(params.fetch(:id))

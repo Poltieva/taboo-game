@@ -11,7 +11,7 @@
 </div>
 
 <div class="game-actions">
-  <% if @game.creator == current_user %>
+  <% if @game.creator == @current_user %>
     <% if @game.waiting? %>
       <%= link_to "Edit this game", edit_game_path(@game) %> |
     <% end %>

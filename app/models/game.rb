@@ -1,5 +1,5 @@
 class Game < ApplicationRecord
-  has_many :games_players
+  has_many :games_players, dependent: :destroy
   has_many :players, through: :games_players, source: :player
   has_many :rounds
   belongs_to :creator, class_name: "User"

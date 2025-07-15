@@ -7,12 +7,16 @@ Rails.application.routes.draw do
 
   resources :games do
     member do
-      get :join
       post :start
+      post :heartbeat
+      get :players
     end
   end
 
   mount ActionCable.server => "/cable"
+
+  # Route for serving sound files
+  get "/sounds/:filename", to: redirect("/assets/sounds/%{filename}")
 
   # Render dynamic PWA files from app/views/pwa/* (remember to link manifest in application.html.erb)
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest

@@ -1,5 +1,5 @@
 class GamesController < ApplicationController
-  before_action :set_game, only: %i[ show edit update destroy start heartbeat players next_round end_round ]
+  before_action :set_game, only: %i[ show edit update destroy start heartbeat players ]
   def index
     @games = Game.where(status: [ :waiting, :in_progress ])
   end
@@ -12,8 +12,6 @@ class GamesController < ApplicationController
     end
     @players = @game.players
     @current_user = current_user
-    @current_round = @game.current_round
-    @next_player = @game.next_round&.player
   end
 
   def new
@@ -83,9 +81,6 @@ class GamesController < ApplicationController
   end
 
   def players
-    current_round = @game.current_round
-    latest_completed_round = @game.rounds.where(status: :completed).order(completed_at: :desc).first
-
     respond_to do |format|
       format.json do
         render json: {
@@ -93,84 +88,10 @@ class GamesController < ApplicationController
             {
               id: p.id,
               username: p.username,
-              is_creator: (p.id == @game.creator_id),
-              is_current_player: (current_round && current_round.player_id == p.id)
+              is_creator: (p.id == @game.creator_id)
             }
-          },
-          current_round: current_round ? {
-            id: current_round.id,
-            player_id: current_round.player_id,
-            word: current_round.word,
-            ends_at: current_round.ends_at&.iso8601,
-            time_remaining: current_round.time_remaining
-          } : nil,
-          next_round_info: latest_completed_round&.next_round_at ? {
-            next_round_at: latest_completed_round.next_round_at.iso8601,
-            seconds_until_next_round: [ (latest_completed_round.next_round_at - Time.current).to_i, 0 ].max
-          } : nil,
-          game_status: @game.status,
-          rounds_available: @game.rounds_available?
+          }
         }
-      end
-    end
-  end
-
-  def next_round
-    # Ensure the game is in progress
-    return head :bad_request unless @game.in_progress?
-
-    # Check if there's an active round - if so, we can't start a new one
-    if @game.current_round
-      respond_to do |format|
-        format.html { redirect_to @game, alert: "A round is already in progress!" }
-        format.json { render json: { status: "error", message: "A round is already in progress" }, status: :conflict }
-        format.js { head :conflict }
-      end
-      return
-    end
-
-    # Start the next round
-    if @game.start_next_round
-      respond_to do |format|
-        format.html { redirect_to @game, notice: "New round started!" }
-        format.json { render json: { status: "success", message: "New round started" } }
-        format.js { head :ok }
-      end
-    else
-      # If there are no more rounds, end the game
-      if !@game.rounds_available?
-        @game.finish_game
-        respond_to do |format|
-          format.html { redirect_to @game, notice: "Game over! No more rounds available." }
-          format.json { render json: { status: "game_over", message: "Game over! No more rounds available." } }
-          format.js { head :ok }
-        end
-      else
-        respond_to do |format|
-          format.html { redirect_to @game, alert: "Could not start the next round." }
-          format.json { render json: { status: "error", message: "Could not start the next round" }, status: :unprocessable_entity }
-          format.js { head :unprocessable_entity }
-        end
-      end
-    end
-  end
-
-  def end_round
-    # Ensure the game is in progress and there's an active round
-    return head :bad_request unless @game.in_progress? && @game.current_round
-
-    # End the current round
-    if @game.end_current_round
-      respond_to do |format|
-        format.html { redirect_to @game, notice: "Round ended!" }
-        format.json { render json: { status: "success", message: "Round ended" } }
-        format.js { head :ok }
-      end
-    else
-      respond_to do |format|
-        format.html { redirect_to @game, alert: "Could not end the round." }
-        format.json { render json: { status: "error", message: "Could not end the round" }, status: :unprocessable_entity }
-        format.js { head :unprocessable_entity }
       end
     end
   end

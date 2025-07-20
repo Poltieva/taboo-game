@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_15_152514) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_14_133451) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -38,14 +38,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_15_152514) do
     t.string "word"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "status", default: 0, null: false
-    t.datetime "started_at"
-    t.datetime "ends_at"
-    t.datetime "completed_at"
-    t.datetime "next_round_at"
     t.index ["game_id"], name: "index_rounds_on_game_id"
     t.index ["player_id"], name: "index_rounds_on_player_id"
-    t.index ["status"], name: "index_rounds_on_status"
   end
 
   create_table "sessions", force: :cascade do |t|

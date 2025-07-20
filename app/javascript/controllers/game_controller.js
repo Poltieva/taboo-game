@@ -330,15 +330,26 @@ export default class extends Controller {
       // Clear the current list
       this.playersListTarget.innerHTML = ''
       
+      this.currentRoundData = data.current_round
+      
       // Add all players
       data.players.forEach(player => {
         const playerElement = document.createElement('div')
         playerElement.id = `player-${player.id}`
-        playerElement.className = 'player-item'
+        
+        // Add current-player class if this is the player for the current round
+        const classes = ['player-item']
+        if (player.is_current_player) {
+          classes.push('current-player')
+        }
+        playerElement.className = classes.join(' ')
         
         let content = `<strong>${player.username}</strong>`
         if (player.is_creator) {
           content += `<span class="creator-badge">Creator</span>`
+        }
+        if (player.is_current_player) {
+          content += `<span class="current-player-badge">Current Player</span>`
         }
         
         playerElement.innerHTML = content

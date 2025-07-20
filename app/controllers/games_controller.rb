@@ -100,8 +100,7 @@ class GamesController < ApplicationController
           },
           current_round: current_round ? {
             id: current_round.id,
-            player_id: current_round.player_id,
-            word: current_round.word
+            player_id: current_round.player_id
           } : nil,
           game_status: @game.status,
           rounds_available: @game.rounds_available?

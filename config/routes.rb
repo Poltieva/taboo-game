@@ -10,6 +10,8 @@ Rails.application.routes.draw do
       post :start
       post :heartbeat
       get :players
+      post :next_round
+      post :end_round
     end
   end
 

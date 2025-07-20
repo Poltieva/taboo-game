@@ -2,7 +2,13 @@ import { Controller } from "@hotwired/stimulus"
 import { createConsumer } from "@rails/actioncable"
 
 export default class extends Controller {
-  static targets = ["playersList"]
+  static targets = ["playersList", "roundTimer", "gameStatus", "roundMessages"]
+
+  static values = {
+    gameId: Number,
+    roundDuration: { type: Number, default: 60 },
+    pauseDuration: { type: Number, default: 10 }
+  }
   
   connect() {
     console.log("Game controller connected with game ID:", this.gameIdValue)
@@ -34,6 +40,12 @@ export default class extends Controller {
           setTimeout(() => {
             this.refreshPlayersList()
           }, 500)
+
+          // Set up a periodic refresh every 5 seconds to keep the player list
+          // and current player indicator in sync
+          this.playerListInterval = setInterval(() => {
+            this.refreshPlayersList()
+          }, 5000)
         } else {
           console.warn("No players list target found!")
         }
@@ -60,6 +72,11 @@ export default class extends Controller {
     
     if (this.boundRefreshHandler) {
       window.removeEventListener('game:refresh-players', this.boundRefreshHandler)
+    }
+
+    // Clear any intervals
+    if (this.playerListInterval) {
+      clearInterval(this.playerListInterval)
     }
   }
   
@@ -103,10 +120,53 @@ export default class extends Controller {
       // Give a slight delay to allow the sound to play before reloading
       setTimeout(() => window.location.reload(), 500)
     } else if (data.type === "round_success") {
-      console.log("Round success:", data)
       this.handleRoundSuccess(data)
+    } else if (data.type === "round_started") {
+      this.handleRoundStarted(data)
+    } else if (data.type === "round_ended") {
+      this.handleRoundEnded(data)
+    } else if (data.type === "game_finished") {
+      this.handleGameFinished()
     } else {
       console.warn("Unknown message type:", data.type)
+    }
+  }
+
+  handleGameFinished() {
+    console.log("Game finished")
+    this.playSound('leave')
+    this.addRoundMessage("Game is finished! All rounds completed.", 'game-finished')    
+    setTimeout(() => window.location.reload(), 1000) // Refresh the page after a delay
+  }
+
+  handleRoundEnded(data) {
+    console.log("Round ended:", data)
+    this.addRoundMessage(`Round with ${data.player_name} has ended. Word was: ${data.word}`, 'round-ended')
+    setTimeout(() => window.location.reload(), 500)
+  }
+
+  handleRoundStarted(data) {
+    console.log("Round started:", data)
+    this.playSound('start')
+    this.addRoundMessage(`Round started with player ${data.player_name}`, 'round-started')
+    window.location.reload()
+  }
+
+  addRoundMessage(message, className = '') {
+    const messageElement = document.createElement('div')
+    messageElement.className = `round-message ${className}`
+    messageElement.textContent = message
+
+    // Add to the beginning of the list
+    if (this.roundMessagesTarget.firstChild) {
+      this.roundMessagesTarget.insertBefore(messageElement, this.roundMessagesTarget.firstChild)
+    } else {
+      this.roundMessagesTarget.appendChild(messageElement)
+    }
+    // Only keep the last 5 messages
+    const messages = this.roundMessagesTarget.querySelectorAll('.round-message')
+    if (messages.length > 5) {
+      this.roundMessagesTarget.removeChild(messages[messages.length - 1])
     }
   }
   
@@ -242,7 +302,6 @@ export default class extends Controller {
   }
   
   handleRoundSuccess(data) {
-    // Handle round success logic if needed
     console.log(`Round ${data.round_id} completed successfully with word: ${data.word}`)
   }
   

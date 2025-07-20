@@ -199,11 +199,6 @@
   gap: 1rem;
 }
 
-.player-item.current-player {
-  background-color: #e3f2fd;
-  border-left: 4px solid #2196f3;
-}
-
 .current-player-badge {
   background-color: #2196f3;
   color: white;

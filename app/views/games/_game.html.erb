@@ -19,17 +19,7 @@
       </div>
     </div>
     <div class="players-container" data-game-target="playersList">
-        <% @players.each do |player| %>
-            <div id="player-<%= player.id %>" class="player-item <%= 'current-player' if @current_round&.player == player %>">
-                <strong><%= player.username %></strong>
-                <% if player.id == game.creator_id %>
-                    <span class="creator-badge">Creator</span>
-                <% end %>
-                <% if @current_round&.player == player %>
-                    <span class="current-player-badge">Current Player</span>
-                <% end %>
-            </div>
-        <% end %>
+        <p>Loading players...</p>
     </div>
 
     <% if game.waiting? && @current_user.id == @game.creator_id %>

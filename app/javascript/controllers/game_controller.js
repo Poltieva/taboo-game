@@ -336,13 +336,7 @@ export default class extends Controller {
       data.players.forEach(player => {
         const playerElement = document.createElement('div')
         playerElement.id = `player-${player.id}`
-        
-        // Add current-player class if this is the player for the current round
-        const classes = ['player-item']
-        if (player.is_current_player) {
-          classes.push('current-player')
-        }
-        playerElement.className = classes.join(' ')
+        playerElement.className = 'player-item'
         
         let content = `<strong>${player.username}</strong>`
         if (player.is_creator) {

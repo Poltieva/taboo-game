@@ -88,6 +88,10 @@ class Game < ApplicationRecord
     rounds.find_by(order: current_round_order + 1)
   end
 
+  def shift_rounds
+    # shift the players for rounds after a new player has joined or left
+  end
+
   private
 
   def create_rounds

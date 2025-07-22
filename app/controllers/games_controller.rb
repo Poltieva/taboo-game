@@ -7,6 +7,7 @@ class GamesController < ApplicationController
   def show
     unless @game.players.include?(current_user)
       @game.players << current_user
+      @game.shift_rounds
       # Don't broadcast here since the channel subscription will handle it
       flash[:notice] = "You have joined the game!"
     end
